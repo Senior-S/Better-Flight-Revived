@@ -1,0 +1,49 @@
+modLoader = "javafml"
+loaderVersion = "[4,)"
+#issueTrackerURL = ""
+license = "LGPL-3.0"
+
+[[mods]]
+modId = "betterflight"
+version = "${version}"
+displayName = "Better Flight"
+authors = "Rejah Tavi, ArkVeil"
+description = '''
+Improves vanilla Elytra mechanics with takeoff, flapping, flaring, stamina, and HUD feedback.
+'''
+#logoFile = ""
+
+[[dependencies.betterflight]]
+modId = "neoforge"
+type = "required"
+versionRange = "[21.1,)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.betterflight]]
+modId = "minecraft"
+type = "required"
+versionRange = "[1.21.1,1.21.2)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.betterflight]]
+modId = "architectury"
+type = "required"
+versionRange = "[13.0.8,)"
+ordering = "AFTER"
+side = "BOTH"
+
+[[dependencies.betterflight]]
+modId = "curios"
+type = "optional"
+versionRange = "[9.5.1,)"
+ordering = "AFTER"
+side = "BOTH"
+
+[[dependencies.betterflight]]
+modId = "beansbackpacks"
+type = "optional"
+versionRange = "[0.12,)"
+ordering = "AFTER"
+side = "BOTH"

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "betterflight",
+  "version": "${version}",
+  "name": "Better Flight",
+  "description": "Improves vanilla Elytra mechanics with takeoff, flapping, flaring, stamina, and HUD feedback.",
+  "authors": [
+    "Rejah Tavi",
+    "ArkVeil"
+  ],
+  "contact": {
+    "homepage": "https://github.com/rejahtavi/betterflight",
+    "sources": "https://github.com/rejahtavi/betterflight"
+  },
+  "license": "LGPL-3.0",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.rejahtavi.betterflight.fabric.BetterFlightFabric"
+    ],
+    "client": [
+      "com.rejahtavi.betterflight.fabric.BetterFlightFabricClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.2",
+    "minecraft": "~1.21.1",
+    "java": ">=21",
+    "fabric-api": "*",
+    "architectury": ">=13.0.8"
+  },
+  "suggests": {
+    "beansbackpacks": ">=0.12",
+    "trinkets": ">=3.10.0"
+  }
+}
