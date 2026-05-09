@@ -4,6 +4,7 @@
   "version": "${version}",
   "name": "Better Flight",
   "description": "Improves vanilla Elytra mechanics with takeoff, flapping, flaring, stamina, and HUD feedback.",
+  "icon": "assets/betterflight/icon/icon-128.png",
   "authors": [
     "SeniorS",
     "Rejah Tavi",
