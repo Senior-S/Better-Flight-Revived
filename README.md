@@ -18,9 +18,7 @@ It improves vanilla Elytra flight with takeoff, flapping, flaring, stamina, HUD 
 
 ## Download
 
-[**GitHub Releases**](https://github.com/Senior-S/Better-Flight-Revived/releases)
-
-CurseForge and Modrinth pages can be added here once published.
+Soon on CurseForge and Modrinth.
 
 ## Installation
 
@@ -51,8 +49,6 @@ Optional compatibility:
 - [Curios API](https://modrinth.com/mod/curios) 9.5.1 or newer
 - [Beans Backpacks 3](https://modrinth.com/mod/beans-backpacks-3) 0.12 or newer
 
-Once the required loader and libraries are installed, download the latest Better Flight Revived jar from [GitHub Releases](https://github.com/Senior-S/Better-Flight-Revived/releases) and place it in your `mods` folder.
-
 ## How to contribute
 
 If you have ideas, bugs, balance feedback, or compatibility reports, open an issue [here](https://github.com/Senior-S/Better-Flight-Revived/issues). Pull requests are welcome.
@@ -61,4 +57,3 @@ If you have ideas, bugs, balance feedback, or compatibility reports, open an iss
 
 - `Rejah Tavi` for the original Better Flight mod.
 - `ArkVeil` for prior Better Flight work.
-- `SeniorS` for reviving and porting the mod to Minecraft 1.21.1.
