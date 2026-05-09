@@ -4,6 +4,9 @@ plugins {
     id 'com.gradleup.shadow' version '8.3.6' apply false
 }
 
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
+
 architectury {
     minecraft = project.minecraft_version
 }
@@ -69,4 +72,265 @@ subprojects {
             // retrieving dependencies.
         }
     }
+}
+
+def modrinthApi = 'https://api.modrinth.com/v2'
+def modrinthProjectSlug = 'better-flight-revived'
+def modrinthUserAgent = 'Senior-S/Better-Flight-Revived local release'
+def modrinthDescription = '''# Better Flight Revived
+
+**Better Flight Revived** brings the classic [Better Flight Forge](https://www.curseforge.com/minecraft/mc-mods/better-flight-forge) experience forward to **Minecraft 1.21.1** with modern Fabric and NeoForge support.
+
+Vanilla Elytra are great, but they lean heavily on fireworks. This mod makes flight feel more active and skill-based with takeoff, flapping, flaring, stamina management, and HUD feedback.
+
+[Join the Discord](https://discord.gg/6c6cDU2mKj)
+
+## What It Adds
+
+- **Sprint + double jump takeoff** for smoother Elytra launches.
+- **Wing flapping** for controlled lift without relying entirely on fireworks.
+- **Modern boost mode** for stronger near-ground movement.
+- **Flare braking** by holding `X` while flying, making landings easier and more controlled.
+- **Flight stamina** so long-distance flight has a light survival cost.
+- **HUD feedback** for stamina and Elytra durability.
+- **Configurable behavior** for costs, recharge speed, hunger exhaustion, ceiling limits, and extra wing items.
+
+## Compatibility
+
+Better Flight Revived supports both major mod loaders for Minecraft 1.21.1:
+
+- **Fabric**
+- **NeoForge**
+
+It also detects Elytra-style equipment from supported slot/backpack mods:
+
+- **Trinkets** on Fabric
+- **Curios API** on NeoForge
+- **Beans Backpacks 3** on Fabric and NeoForge
+
+## Requirements
+
+### Fabric
+
+- Minecraft **1.21.1**
+- Java **21**
+- Fabric Loader **0.19.2+**
+- Fabric API
+- Architectury API **13.0.8+**
+
+### NeoForge
+
+- Minecraft **1.21.1**
+- Java **21**
+- NeoForge **21.1+**
+- Architectury API **13.0.8+**
+
+## Optional Integrations
+
+- Trinkets **3.10.0+**
+- Curios API **9.5.1+**
+- Beans Backpacks 3 **0.12+**
+
+## Credits
+
+- **Rejah Tavi** for the original Better Flight mod.
+- **ArkVeil** for prior Better Flight work.
+- **SeniorS** for reviving and porting the mod to Minecraft 1.21.1.
+
+## Support
+
+Found a bug, balance issue, or compatibility problem? Open an issue on GitHub or join the Discord.
+
+- [GitHub Issues](https://github.com/Senior-S/Better-Flight-Revived/issues)
+- [Discord](https://discord.gg/6c6cDU2mKj)
+'''
+
+def modrinthToken = {
+    def token = System.getenv('MODRINTH_TOKEN') ?: findProperty('modrinthToken')
+    if (!token) {
+        throw new GradleException('MODRINTH_TOKEN environment variable or -PmodrinthToken is required.')
+    }
+    token
+}
+
+def requestJson = { String method, String endpoint, Map payload = null ->
+    List<String> command = [
+            'curl', '-sS', '--fail-with-body',
+            '-X', method,
+            "${modrinthApi}${endpoint}",
+            '-H', "Authorization: ${modrinthToken()}",
+            '-H', "User-Agent: ${modrinthUserAgent}",
+            '-H', 'Content-Type: application/json'
+    ]
+    if (payload != null) {
+        File payloadFile = File.createTempFile('betterflight-modrinth-', '.json')
+        payloadFile.text = JsonOutput.toJson(payload)
+        command += ['--data-binary', "@${payloadFile.absolutePath}"]
+    }
+
+    ByteArrayOutputStream stdout = new ByteArrayOutputStream()
+    ByteArrayOutputStream stderr = new ByteArrayOutputStream()
+    def result = exec {
+        commandLine command
+        standardOutput = stdout
+        errorOutput = stderr
+        ignoreExitValue = true
+    }
+    result.rethrowFailure()
+    if (result.exitValue != 0) {
+        throw new GradleException("Modrinth API curl failed with exit ${result.exitValue}: ${stdout.toString('UTF-8')}${stderr.toString('UTF-8')}")
+    }
+
+    String text = stdout.toString('UTF-8')
+    text ? new JsonSlurper().parseText(text) : null
+}
+
+def requestMultipart = { String method, String endpoint, Map data, Map<String, File> files ->
+    File payloadFile = File.createTempFile('betterflight-modrinth-', '.json')
+    payloadFile.text = JsonOutput.toJson(data)
+
+    List<String> command = [
+            'curl', '-sS', '--fail-with-body',
+            '-X', method,
+            "${modrinthApi}${endpoint}",
+            '-H', "Authorization: ${modrinthToken()}",
+            '-H', "User-Agent: ${modrinthUserAgent}",
+            '-F', "data=<${payloadFile.absolutePath};type=application/json"
+    ]
+    files.each { String partName, File file ->
+        command += ['-F', "${partName}=@${file.absolutePath}"]
+    }
+
+    ByteArrayOutputStream stdout = new ByteArrayOutputStream()
+    ByteArrayOutputStream stderr = new ByteArrayOutputStream()
+    def result = exec {
+        commandLine command
+        standardOutput = stdout
+        errorOutput = stderr
+        ignoreExitValue = true
+    }
+    result.rethrowFailure()
+    if (result.exitValue != 0) {
+        throw new GradleException("Modrinth API curl failed with exit ${result.exitValue}: ${stdout.toString('UTF-8')}${stderr.toString('UTF-8')}")
+    }
+
+    String text = stdout.toString('UTF-8')
+    text ? new JsonSlurper().parseText(text) : null
+}
+
+def projectPayload = {
+    [
+            slug        : modrinthProjectSlug,
+            title       : 'Better Flight Revived',
+            description : 'Active Elytra flight with takeoff, flapping, flaring, stamina, and HUD feedback.',
+            categories  : ['adventure', 'equipment', 'utility'],
+            client_side : 'required',
+            server_side : 'optional',
+            body        : modrinthDescription,
+            license_id  : 'Apache-2.0',
+            project_type: 'mod',
+            issues_url  : 'https://github.com/Senior-S/Better-Flight-Revived/issues',
+            source_url  : 'https://github.com/Senior-S/Better-Flight-Revived',
+            discord_url : 'https://discord.gg/6c6cDU2mKj'
+    ]
+}
+
+tasks.register('syncModrinthProject') {
+    group = 'publishing'
+    description = 'Creates or updates the Modrinth project page.'
+
+    doLast {
+        File outputDir = file("$buildDir/modrinth")
+        outputDir.mkdirs()
+
+        Map payload = projectPayload()
+        def project
+        try {
+            project = requestJson('GET', "/project/${modrinthProjectSlug}")
+            Map updatePayload = new LinkedHashMap(payload)
+            updatePayload.remove('slug')
+            updatePayload.remove('project_type')
+            project = requestJson('PATCH', "/project/${modrinthProjectSlug}", updatePayload)
+            if (project == null) {
+                project = requestJson('GET', "/project/${modrinthProjectSlug}")
+            }
+        } catch (GradleException exception) {
+            if (!exception.message.contains('HTTP 404')) {
+                throw exception
+            }
+            Map createPayload = new LinkedHashMap(payload)
+            createPayload.requested_status = 'draft'
+            File icon = file('common/src/main/resources/assets/betterflight/icon/icon-256.png')
+            project = requestMultipart('POST', '/project', createPayload, ['icon': icon])
+        }
+
+        file("$outputDir/project-id.txt").text = project.id
+        logger.lifecycle("Synced Modrinth project ${project.slug} (${project.id})")
+    }
+}
+
+def publishModrinthVersionTask = { String loaderName, String versionSuffix, String jarPath, List<Map> dependencies ->
+    tasks.register("publishModrinth${loaderName.capitalize()}") {
+        group = 'publishing'
+        description = "Publishes the ${loaderName} jar to Modrinth."
+        dependsOn 'syncModrinthProject', ":${loaderName}:build"
+
+        doLast {
+            File jar = file(jarPath)
+            if (!jar.exists()) {
+                throw new GradleException("Expected release jar does not exist: ${jar}")
+            }
+
+            String projectId = file("$buildDir/modrinth/project-id.txt").text.trim()
+            String changelog = findProperty('modrinthChangelog') ?: "Better Flight Revived ${version} for Minecraft ${minecraft_version}."
+            String releaseType = findProperty('modrinthReleaseType') ?: 'release'
+            Map payload = [
+                    name          : "Better Flight Revived ${version} ${loaderName.capitalize()}",
+                    version_number: "${version}+${versionSuffix}",
+                    changelog     : changelog,
+                    dependencies  : dependencies,
+                    game_versions : [minecraft_version],
+                    version_type  : releaseType,
+                    loaders       : [loaderName],
+                    featured      : true,
+                    status        : 'listed',
+                    project_id    : projectId,
+                    file_parts    : ['file'],
+                    primary_file  : 'file'
+            ]
+
+            requestMultipart('POST', '/version', payload, ['file': jar])
+            logger.lifecycle("Published ${jar.name} to Modrinth")
+        }
+    }
+}
+
+publishModrinthVersionTask('fabric', 'fabric', "fabric/build/libs/${archives_name}-fabric-${mod_version}.jar", [
+        [project_id: 'P7dR8mSH', dependency_type: 'required'],
+        [project_id: 'lhGA9TYQ', dependency_type: 'required'],
+        [project_id: '5aaWibi9', dependency_type: 'optional'],
+        [project_id: 'o4TtgIhD', dependency_type: 'optional']
+])
+
+publishModrinthVersionTask('neoforge', 'neoforge', "neoforge/build/libs/${archives_name}-neoforge-${mod_version}.jar", [
+        [project_id: 'lhGA9TYQ', dependency_type: 'required'],
+        [project_id: 'vvuO3ImH', dependency_type: 'optional'],
+        [project_id: 'o4TtgIhD', dependency_type: 'optional']
+])
+
+tasks.register('requestModrinthReview') {
+    group = 'publishing'
+    description = 'Requests Modrinth review for the project.'
+    dependsOn 'publishModrinthFabric', 'publishModrinthNeoforge'
+
+    doLast {
+        requestJson('PATCH', "/project/${modrinthProjectSlug}", [requested_status: 'approved'])
+        logger.lifecycle('Requested Modrinth review')
+    }
+}
+
+tasks.register('publishModrinth') {
+    group = 'publishing'
+    description = 'Builds, publishes Fabric and NeoForge jars to Modrinth, and requests project review.'
+    dependsOn 'requestModrinthReview'
 }
