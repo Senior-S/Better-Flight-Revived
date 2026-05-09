@@ -7,7 +7,7 @@ license = "LGPL-3.0"
 modId = "betterflight"
 version = "${version}"
 displayName = "Better Flight"
-authors = "Rejah Tavi, ArkVeil"
+authors = "SeniorS"
 description = '''
 Improves vanilla Elytra mechanics with takeoff, flapping, flaring, stamina, and HUD feedback.
 '''
