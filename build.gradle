@@ -77,6 +77,11 @@ subprojects {
 def modrinthApi = 'https://api.modrinth.com/v2'
 def modrinthProjectSlug = 'better-flight-revived'
 def modrinthUserAgent = 'Senior-S/Better-Flight-Revived local release'
+def curseForgeApi = 'https://minecraft.curseforge.com/api'
+def curseForgeProjectSlug = 'better-flight-revived'
+def curseForgeMinecraft1211 = 12735
+def curseForgeFabric = 7499
+def curseForgeNeoForge = 10150
 def modrinthDescription = '''# Better Flight Revived
 
 **Better Flight Revived** brings the classic [Better Flight Forge](https://www.curseforge.com/minecraft/mc-mods/better-flight-forge) experience forward to **Minecraft 1.21.1** with modern Fabric and NeoForge support.
@@ -153,6 +158,22 @@ def modrinthToken = {
     token
 }
 
+def curseForgeToken = {
+    def token = System.getenv('CURSEFORGE_TOKEN') ?: System.getenv('CURSEFORGE_API_TOKEN') ?: findProperty('curseForgeToken')
+    if (!token) {
+        throw new GradleException('CURSEFORGE_TOKEN environment variable or -PcurseForgeToken is required.')
+    }
+    token
+}
+
+def curseForgeProject = {
+    def projectId = System.getenv('CURSEFORGE_PROJECT_ID') ?: findProperty('curseForgeProjectId')
+    if (!projectId) {
+        throw new GradleException("CURSEFORGE_PROJECT_ID environment variable or -PcurseForgeProjectId is required. CurseForge's upload API does not accept the slug '${curseForgeProjectSlug}'.")
+    }
+    projectId
+}
+
 def requestJson = { String method, String endpoint, Map payload = null ->
     List<String> command = [
             'curl', '-sS', '--fail-with-body',
@@ -212,6 +233,36 @@ def requestMultipart = { String method, String endpoint, Map data, Map<String, F
     result.rethrowFailure()
     if (result.exitValue != 0) {
         throw new GradleException("Modrinth API curl failed with exit ${result.exitValue}: ${stdout.toString('UTF-8')}${stderr.toString('UTF-8')}")
+    }
+
+    String text = stdout.toString('UTF-8')
+    text ? new JsonSlurper().parseText(text) : null
+}
+
+def requestCurseForgeMultipart = { String endpoint, Map metadata, File file ->
+    File payloadFile = File.createTempFile('betterflight-curseforge-', '.json')
+    payloadFile.text = JsonOutput.toJson(metadata)
+
+    List<String> command = [
+            'curl', '-L', '-sS', '--fail-with-body',
+            '-X', 'POST',
+            "${curseForgeApi}${endpoint}",
+            '-H', "X-Api-Token: ${curseForgeToken()}",
+            '-F', "metadata=<${payloadFile.absolutePath};type=application/json",
+            '-F', "file=@${file.absolutePath}"
+    ]
+
+    ByteArrayOutputStream stdout = new ByteArrayOutputStream()
+    ByteArrayOutputStream stderr = new ByteArrayOutputStream()
+    def result = exec {
+        commandLine command
+        standardOutput = stdout
+        errorOutput = stderr
+        ignoreExitValue = true
+    }
+    result.rethrowFailure()
+    if (result.exitValue != 0) {
+        throw new GradleException("CurseForge API curl failed with exit ${result.exitValue}: ${stdout.toString('UTF-8')}${stderr.toString('UTF-8')}")
     }
 
     String text = stdout.toString('UTF-8')
@@ -333,4 +384,53 @@ tasks.register('publishModrinth') {
     group = 'publishing'
     description = 'Builds, publishes Fabric and NeoForge jars to Modrinth, and requests project review.'
     dependsOn 'requestModrinthReview'
+}
+
+def publishCurseForgeVersionTask = { String loaderName, String jarPath, List<Integer> gameVersionIds, List<Map> relations ->
+    tasks.register("publishCurseForge${loaderName.capitalize()}") {
+        group = 'publishing'
+        description = "Publishes the ${loaderName} jar to CurseForge."
+        dependsOn ":${loaderName}:build"
+
+        doLast {
+            File jar = file(jarPath)
+            if (!jar.exists()) {
+                throw new GradleException("Expected release jar does not exist: ${jar}")
+            }
+
+            String changelog = findProperty('curseForgeChangelog') ?: findProperty('modrinthChangelog') ?: "Better Flight Revived ${version} for Minecraft ${minecraft_version}."
+            String releaseType = findProperty('curseForgeReleaseType') ?: findProperty('modrinthReleaseType') ?: 'release'
+            String displayLoader = loaderName == 'neoforge' ? 'NeoForge' : 'Fabric'
+            Map metadata = [
+                    changelog    : changelog,
+                    changelogType: 'markdown',
+                    displayName  : "Better Flight Revived ${version} ${displayLoader}",
+                    gameVersions : gameVersionIds,
+                    releaseType  : releaseType,
+                    relations    : [projects: relations]
+            ]
+
+            def response = requestCurseForgeMultipart("/projects/${curseForgeProject()}/upload-file", metadata, jar)
+            logger.lifecycle("Published ${jar.name} to CurseForge as file ${response?.id ?: '(unknown id)'}")
+        }
+    }
+}
+
+publishCurseForgeVersionTask('fabric', "fabric/build/libs/${archives_name}-fabric-${mod_version}.jar", [curseForgeMinecraft1211, curseForgeFabric], [
+        [slug: 'fabric-api', type: 'requiredDependency'],
+        [slug: 'architectury-api', type: 'requiredDependency'],
+        [slug: 'trinkets', type: 'optionalDependency'],
+        [slug: 'beans-backpacks', type: 'optionalDependency']
+])
+
+publishCurseForgeVersionTask('neoforge', "neoforge/build/libs/${archives_name}-neoforge-${mod_version}.jar", [curseForgeMinecraft1211, curseForgeNeoForge], [
+        [slug: 'architectury-api', type: 'requiredDependency'],
+        [slug: 'curios', type: 'optionalDependency'],
+        [slug: 'beans-backpacks', type: 'optionalDependency']
+])
+
+tasks.register('publishCurseForge') {
+    group = 'publishing'
+    description = 'Builds and publishes Fabric and NeoForge jars to CurseForge.'
+    dependsOn 'publishCurseForgeFabric', 'publishCurseForgeNeoforge'
 }
