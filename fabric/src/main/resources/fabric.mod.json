@@ -11,8 +11,9 @@
     "ArkVeil"
   ],
   "contact": {
-    "homepage": "https://github.com/rejahtavi/betterflight",
-    "sources": "https://github.com/rejahtavi/betterflight"
+    "homepage": "https://modrinth.com/mod/better-flight-revived",
+    "sources": "https://github.com/Senior-S/Better-Flight-Revived",
+    "issues": "https://github.com/Senior-S/Better-Flight-Revived/issues"
   },
   "license": "LGPL-3.0",
   "environment": "*",

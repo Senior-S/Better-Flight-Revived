@@ -18,7 +18,9 @@ It improves vanilla Elytra flight with takeoff, flapping, flaring, stamina, HUD 
 
 ## Download
 
-Soon on CurseForge and Modrinth.
+[**Modrinth**](https://modrinth.com/mod/better-flight-revived)
+
+CurseForge support can be added later once a project page exists there.
 
 ## Installation
 

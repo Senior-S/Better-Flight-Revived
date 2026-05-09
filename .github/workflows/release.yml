@@ -1,0 +1,288 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Mod version to publish, for example 1.0.1"
+        required: true
+        type: string
+      release_type:
+        description: "Release channel"
+        required: true
+        default: "release"
+        type: choice
+        options:
+          - release
+          - beta
+          - alpha
+      changelog:
+        description: "Release notes shown on Modrinth and GitHub"
+        required: true
+        type: string
+      dry_run:
+        description: "Build only; skip publishing"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ inputs.version }}
+  cancel-in-progress: false
+
+env:
+  MINECRAFT_VERSION: 1.21.1
+  MOD_VERSION: ${{ inputs.version }}
+  RELEASE_TYPE: ${{ inputs.release_type }}
+  CHANGELOG: ${{ inputs.changelog }}
+  DRY_RUN: ${{ inputs.dry_run }}
+  PROJECT_SLUG: better-flight-revived
+  RELEASE_TAG: v${{ inputs.version }}
+  RELEASE_NAME: Better Flight Revived ${{ inputs.version }} for Minecraft 1.21.1
+  FABRIC_JAR: fabric/build/libs/betterflight-fabric-${{ inputs.version }}.jar
+  NEOFORGE_JAR: neoforge/build/libs/betterflight-neoforge-${{ inputs.version }}.jar
+  MODRINTH_API: https://api.modrinth.com/v2
+  USER_AGENT: Senior-S/Better-Flight-Revived release workflow
+
+jobs:
+  build:
+    name: Build release jars
+    runs-on: ubuntu-24.04
+    outputs:
+      artifact-name: release-jars
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate version input
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "${MOD_VERSION}" =~ ^[0-9]+(\.[0-9]+){1,3}([-+][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Version '${MOD_VERSION}' does not look like a release version." >&2
+            exit 1
+          fi
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build Fabric and NeoForge
+        run: ./gradlew clean :fabric:build :neoforge:build -Pmod_version="${MOD_VERSION}"
+
+      - name: Verify release jars
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "${FABRIC_JAR}"
+          test -f "${NEOFORGE_JAR}"
+          ls -lh "${FABRIC_JAR}" "${NEOFORGE_JAR}"
+
+      - name: Upload release jars
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-jars
+          if-no-files-found: error
+          path: |
+            ${{ env.FABRIC_JAR }}
+            ${{ env.NEOFORGE_JAR }}
+
+  publish:
+    name: Publish to Modrinth and GitHub
+    needs: build
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-24.04
+    env:
+      HAS_MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN != '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download release jars
+        uses: actions/download-artifact@v4
+        with:
+          name: release-jars
+          path: release-jars
+
+      - name: Validate publishing configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "${HAS_MODRINTH_TOKEN}" == "true" ]] || { echo "Missing repository secret MODRINTH_TOKEN" >&2; exit 1; }
+          test -f docs/modrinth-description.md
+          test -f common/src/main/resources/assets/betterflight/icon/icon-256.png
+          find release-jars -name "$(basename "${FABRIC_JAR}")" -type f -print -quit | grep -q .
+          find release-jars -name "$(basename "${NEOFORGE_JAR}")" -type f -print -quit | grep -q .
+
+      - name: Sync Modrinth project page
+        shell: bash
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          body = Path("docs/modrinth-description.md").read_text(encoding="utf-8")
+          payload = {
+              "slug": "better-flight-revived",
+              "title": "Better Flight Revived",
+              "description": "Active Elytra flight with takeoff, flapping, flaring, stamina, and HUD feedback.",
+              "categories": ["adventure", "equipment", "utility"],
+              "client_side": "required",
+              "server_side": "optional",
+              "body": body,
+              "license_id": "LGPL-3.0-only",
+              "project_type": "mod",
+              "issues_url": "https://github.com/Senior-S/Better-Flight-Revived/issues",
+              "source_url": "https://github.com/Senior-S/Better-Flight-Revived",
+              "discord_url": "https://discord.gg/6c6cDU2mKj",
+          }
+          Path("modrinth-project.json").write_text(json.dumps(payload), encoding="utf-8")
+
+          create_payload = dict(payload)
+          create_payload["requested_status"] = "draft"
+          Path("modrinth-project-create.json").write_text(json.dumps(create_payload), encoding="utf-8")
+          PY
+
+          status="$(curl -sS -o project-response.json -w '%{http_code}' \
+            -H "Authorization: ${MODRINTH_TOKEN}" \
+            -H "User-Agent: ${USER_AGENT}" \
+            "${MODRINTH_API}/project/${PROJECT_SLUG}")"
+
+          if [[ "${status}" == "404" ]]; then
+            curl -sS --fail-with-body -o project-response.json -X POST "${MODRINTH_API}/project" \
+              -H "Authorization: ${MODRINTH_TOKEN}" \
+              -H "User-Agent: ${USER_AGENT}" \
+              -F "data=<modrinth-project-create.json;type=application/json" \
+              -F "icon=@common/src/main/resources/assets/betterflight/icon/icon-256.png"
+          else
+            test "${status}" = "200"
+            curl -sS --fail-with-body -o project-response.json -X PATCH "${MODRINTH_API}/project/${PROJECT_SLUG}" \
+              -H "Authorization: ${MODRINTH_TOKEN}" \
+              -H "User-Agent: ${USER_AGENT}" \
+              -H "Content-Type: application/json" \
+              --data @modrinth-project.json
+          fi
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          project = json.loads(Path("project-response.json").read_text(encoding="utf-8"))
+          Path("modrinth-project-id.txt").write_text(project["id"], encoding="utf-8")
+          PY
+
+      - name: Publish Fabric version to Modrinth
+        shell: bash
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          version = os.environ["MOD_VERSION"]
+          changelog = os.environ["CHANGELOG"]
+          release_type = os.environ["RELEASE_TYPE"]
+          project_id = Path("modrinth-project-id.txt").read_text(encoding="utf-8")
+          payload = {
+              "name": f"Better Flight Revived {version} Fabric",
+              "version_number": f"{version}+fabric",
+              "changelog": changelog,
+              "dependencies": [
+                  {"project_id": "P7dR8mSH", "dependency_type": "required"},
+                  {"project_id": "lhGA9TYQ", "dependency_type": "required"},
+                  {"project_id": "5aaWibi9", "dependency_type": "optional"},
+                  {"project_id": "o4TtgIhD", "dependency_type": "optional"},
+              ],
+              "game_versions": ["1.21.1"],
+              "version_type": release_type,
+              "loaders": ["fabric"],
+              "featured": True,
+              "status": "listed",
+              "project_id": project_id,
+              "file_parts": ["file"],
+              "primary_file": "file",
+          }
+          Path("modrinth-fabric-version.json").write_text(json.dumps(payload), encoding="utf-8")
+          PY
+          fabric_upload_jar="$(find release-jars -name "$(basename "${FABRIC_JAR}")" -type f -print -quit)"
+          curl -sS --fail-with-body -X POST "${MODRINTH_API}/version" \
+            -H "Authorization: ${MODRINTH_TOKEN}" \
+            -H "User-Agent: ${USER_AGENT}" \
+            -F "data=<modrinth-fabric-version.json;type=application/json" \
+            -F "file=@${fabric_upload_jar}"
+
+      - name: Publish NeoForge version to Modrinth
+        shell: bash
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          version = os.environ["MOD_VERSION"]
+          changelog = os.environ["CHANGELOG"]
+          release_type = os.environ["RELEASE_TYPE"]
+          project_id = Path("modrinth-project-id.txt").read_text(encoding="utf-8")
+          payload = {
+              "name": f"Better Flight Revived {version} NeoForge",
+              "version_number": f"{version}+neoforge",
+              "changelog": changelog,
+              "dependencies": [
+                  {"project_id": "lhGA9TYQ", "dependency_type": "required"},
+                  {"project_id": "vvuO3ImH", "dependency_type": "optional"},
+                  {"project_id": "o4TtgIhD", "dependency_type": "optional"},
+              ],
+              "game_versions": ["1.21.1"],
+              "version_type": release_type,
+              "loaders": ["neoforge"],
+              "featured": True,
+              "status": "listed",
+              "project_id": project_id,
+              "file_parts": ["file"],
+              "primary_file": "file",
+          }
+          Path("modrinth-neoforge-version.json").write_text(json.dumps(payload), encoding="utf-8")
+          PY
+          neoforge_upload_jar="$(find release-jars -name "$(basename "${NEOFORGE_JAR}")" -type f -print -quit)"
+          curl -sS --fail-with-body -X POST "${MODRINTH_API}/version" \
+            -H "Authorization: ${MODRINTH_TOKEN}" \
+            -H "User-Agent: ${USER_AGENT}" \
+            -F "data=<modrinth-neoforge-version.json;type=application/json" \
+            -F "file=@${neoforge_upload_jar}"
+
+      - name: Request Modrinth review
+        shell: bash
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          printf '{"requested_status":"approved"}' > modrinth-review-request.json
+          curl -sS --fail-with-body -X PATCH "${MODRINTH_API}/project/${PROJECT_SLUG}" \
+            -H "Authorization: ${MODRINTH_TOKEN}" \
+            -H "User-Agent: ${USER_AGENT}" \
+            -H "Content-Type: application/json" \
+            --data @modrinth-review-request.json
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: ${{ env.RELEASE_NAME }}
+          body: ${{ env.CHANGELOG }}
+          files: |
+            release-jars/**/*.jar
