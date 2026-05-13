@@ -15,7 +15,7 @@
     "sources": "https://github.com/Senior-S/Better-Flight-Revived",
     "issues": "https://github.com/Senior-S/Better-Flight-Revived/issues"
   },
-  "license": "Apache-2.0",
+  "license": "GPL-3.0-only",
   "environment": "*",
   "entrypoints": {
     "main": [

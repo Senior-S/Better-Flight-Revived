@@ -1,7 +1,7 @@
 modLoader = "javafml"
 loaderVersion = "[4,)"
 issueTrackerURL = "https://github.com/Senior-S/Better-Flight-Revived/issues"
-license = "Apache-2.0"
+license = "GPL-3.0-only"
 
 [[mods]]
 modId = "betterflight"

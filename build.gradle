@@ -278,7 +278,7 @@ def projectPayload = {
             client_side : 'required',
             server_side : 'optional',
             body        : modrinthDescription,
-            license_id  : 'Apache-2.0',
+            license_id  : 'GPL-3.0-only',
             project_type: 'mod',
             issues_url  : 'https://github.com/Senior-S/Better-Flight-Revived/issues',
             source_url  : 'https://github.com/Senior-S/Better-Flight-Revived',
