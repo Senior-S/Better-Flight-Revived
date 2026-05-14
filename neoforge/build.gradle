@@ -45,6 +45,7 @@ repositories {
 dependencies {
     neoForge "net.neoforged:neoforge:$rootProject.neoforge_version"
     modApi "dev.architectury:architectury-neoforge:$rootProject.architectury_api_version"
+    modImplementation "dev.isxander:yet-another-config-lib:$rootProject.yacl_version-neoforge"
     modCompileOnly("top.theillusivec4.curios:curios-neoforge:$rootProject.curios_version") { transitive = false }
     modCompileOnly("maven.modrinth:beans-backpacks-3:$rootProject.beans_backpacks_neoforge_version") { transitive = false }
 

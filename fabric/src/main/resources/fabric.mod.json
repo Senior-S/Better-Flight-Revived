@@ -23,6 +23,9 @@
     ],
     "client": [
       "com.rejahtavi.betterflight.fabric.BetterFlightFabricClient"
+    ],
+    "modmenu": [
+      "com.rejahtavi.betterflight.fabric.BetterFlightModMenu"
     ]
   },
   "depends": {
@@ -30,9 +33,11 @@
     "minecraft": "~1.21.1",
     "java": ">=21",
     "fabric-api": "*",
-    "architectury": ">=13.0.8"
+    "architectury": ">=13.0.8",
+    "yet_another_config_lib_v3": ">=3.6.6"
   },
   "suggests": {
+    "modmenu": "*",
     "beansbackpacks": ">=0.12",
     "trinkets": ">=3.10.0"
   }

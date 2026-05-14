@@ -30,6 +30,14 @@ subprojects {
         maven { url = 'https://maven.architectury.dev/' }
         maven { url = 'https://maven.terraformersmc.com/releases/' }
         maven { url = 'https://maven.ladysnake.org/releases/' }
+        maven {
+            name = 'Xander Maven'
+            url = 'https://maven.isxander.dev/releases'
+        }
+        maven {
+            name = 'Kotlin for Forge'
+            url = 'https://thedarkcolour.github.io/KotlinForForge/'
+        }
     }
 
     loom {
@@ -168,10 +176,30 @@ def curseForgeToken = {
 
 def curseForgeProject = {
     def projectId = System.getenv('CURSEFORGE_PROJECT_ID') ?: findProperty('curseForgeProjectId')
-    if (!projectId) {
-        throw new GradleException("CURSEFORGE_PROJECT_ID environment variable or -PcurseForgeProjectId is required. CurseForge's upload API does not accept the slug '${curseForgeProjectSlug}'.")
+    if (projectId) {
+        return projectId
     }
-    projectId
+
+    String token = curseForgeToken()
+    URL url = new URL("https://api.curseforge.com/v1/mods/search?gameId=432&slug=${curseForgeProjectSlug}")
+    HttpURLConnection connection = (HttpURLConnection) url.openConnection()
+    connection.setRequestProperty('x-api-key', token)
+    connection.setRequestProperty('Accept', 'application/json')
+    connection.connect()
+
+    String text = connection.responseCode >= 400
+            ? connection.errorStream?.getText('UTF-8')
+            : connection.inputStream?.getText('UTF-8')
+    if (connection.responseCode >= 400) {
+        throw new GradleException("CurseForge project lookup failed with HTTP ${connection.responseCode}: ${text}")
+    }
+
+    def response = new JsonSlurper().parseText(text)
+    def project = response.data?.find { it.slug == curseForgeProjectSlug } ?: response.data?.getAt(0)
+    if (!project?.id) {
+        throw new GradleException("Could not resolve CurseForge project id for slug '${curseForgeProjectSlug}'.")
+    }
+    project.id
 }
 
 def requestJson = { String method, String endpoint, Map payload = null ->
@@ -359,12 +387,14 @@ def publishModrinthVersionTask = { String loaderName, String versionSuffix, Stri
 publishModrinthVersionTask('fabric', 'fabric', "fabric/build/libs/${archives_name}-fabric-${mod_version}.jar", [
         [project_id: 'P7dR8mSH', dependency_type: 'required'],
         [project_id: 'lhGA9TYQ', dependency_type: 'required'],
+        [project_id: '1eAoo2KR', dependency_type: 'required'],
         [project_id: '5aaWibi9', dependency_type: 'optional'],
         [project_id: 'o4TtgIhD', dependency_type: 'optional']
 ])
 
 publishModrinthVersionTask('neoforge', 'neoforge', "neoforge/build/libs/${archives_name}-neoforge-${mod_version}.jar", [
         [project_id: 'lhGA9TYQ', dependency_type: 'required'],
+        [project_id: '1eAoo2KR', dependency_type: 'required'],
         [project_id: 'vvuO3ImH', dependency_type: 'optional'],
         [project_id: 'o4TtgIhD', dependency_type: 'optional']
 ])
@@ -419,12 +449,14 @@ def publishCurseForgeVersionTask = { String loaderName, String jarPath, List<Int
 publishCurseForgeVersionTask('fabric', "fabric/build/libs/${archives_name}-fabric-${mod_version}.jar", [curseForgeMinecraft1211, curseForgeFabric], [
         [slug: 'fabric-api', type: 'requiredDependency'],
         [slug: 'architectury-api', type: 'requiredDependency'],
+        [slug: 'yacl', type: 'requiredDependency'],
         [slug: 'trinkets', type: 'optionalDependency'],
         [slug: 'beans-backpacks', type: 'optionalDependency']
 ])
 
 publishCurseForgeVersionTask('neoforge', "neoforge/build/libs/${archives_name}-neoforge-${mod_version}.jar", [curseForgeMinecraft1211, curseForgeNeoForge], [
         [slug: 'architectury-api', type: 'requiredDependency'],
+        [slug: 'yacl', type: 'requiredDependency'],
         [slug: 'curios', type: 'optionalDependency'],
         [slug: 'beans-backpacks', type: 'optionalDependency']
 ])

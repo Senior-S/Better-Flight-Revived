@@ -26,6 +26,10 @@ public final class ClientConfig {
     }
 
     public static void saveHudLocation() {
+        save();
+    }
+
+    public static void save() {
         ConfigFile config = new ConfigFile("betterflight-client.properties");
         config.load();
         config.put("TakeOffVolume", takeOffVolume);

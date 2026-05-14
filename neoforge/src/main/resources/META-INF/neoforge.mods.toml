@@ -35,6 +35,13 @@ ordering = "AFTER"
 side = "BOTH"
 
 [[dependencies.betterflight]]
+modId = "yet_another_config_lib_v3"
+type = "required"
+versionRange = "[3.6.6,)"
+ordering = "AFTER"
+side = "BOTH"
+
+[[dependencies.betterflight]]
 modId = "curios"
 type = "optional"
 versionRange = "[9.5.1,)"

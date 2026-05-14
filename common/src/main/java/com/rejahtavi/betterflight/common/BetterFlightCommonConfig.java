@@ -85,4 +85,23 @@ public final class BetterFlightCommonConfig {
         }
         BetterFlightCommonConfig.ceilingRange = Math.max(1, BetterFlightCommonConfig.hardCeiling - BetterFlightCommonConfig.softCeiling);
     }
+
+    public static void save() {
+        ConfigFile config = new ConfigFile("betterflight-common.properties");
+        config.load();
+        config.put("MaxCharge", maxCharge);
+        config.put("TakeOffCost", takeOffCost);
+        config.put("FlapCost", flapCost);
+        config.put("RechargeTicksInAir", rechargeTicksInAir);
+        config.put("RechargeTicksOnGround", rechargeTicksOnGround);
+        config.put("FlareTicksPerChargePoint", flareTicksPerChargePoint);
+        config.put("ExhaustionPerChargePoint", exhaustionPerChargePoint);
+        config.put("MinFood", minFood);
+        config.put("CooldownTicks", cooldownTicks);
+        config.put("softCeiling", softCeiling);
+        config.put("hardCeiling", hardCeiling);
+        config.put("classicMode", classicMode);
+        config.put("AdditionalWingItems", String.join(",", additionalWingItems));
+        config.save();
+    }
 }
