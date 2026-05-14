@@ -87,6 +87,7 @@ def modrinthProjectSlug = 'better-flight-revived'
 def modrinthUserAgent = 'Senior-S/Better-Flight-Revived local release'
 def curseForgeApi = 'https://minecraft.curseforge.com/api'
 def curseForgeProjectSlug = 'better-flight-revived'
+def curseForgeProjectId = 1538652
 def curseForgeMinecraft1211 = 11779
 def curseForgeFabric = 7499
 def curseForgeNeoForge = 10150
@@ -178,6 +179,9 @@ def curseForgeProject = {
     def projectId = System.getenv('CURSEFORGE_PROJECT_ID') ?: findProperty('curseForgeProjectId')
     if (projectId) {
         return projectId
+    }
+    if (curseForgeProjectSlug == 'better-flight-revived') {
+        return curseForgeProjectId
     }
 
     String token = curseForgeToken()
