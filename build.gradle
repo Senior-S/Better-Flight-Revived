@@ -91,6 +91,8 @@ def curseForgeProjectId = 1538652
 def curseForgeMinecraft1211 = 11779
 def curseForgeFabric = 7499
 def curseForgeNeoForge = 10150
+def curseForgeClient = 9638
+def curseForgeServer = 9639
 def modrinthDescription = '''# Better Flight Revived
 
 **Better Flight Revived** brings the classic [Better Flight Forge](https://www.curseforge.com/minecraft/mc-mods/better-flight-forge) experience forward to **Minecraft 1.21.1** with modern Fabric and NeoForge support.
@@ -405,7 +407,7 @@ def publishCurseForgeVersionTask = { String loaderName, String jarPath, List<Int
     }
 }
 
-publishCurseForgeVersionTask('fabric', "fabric/build/libs/${archives_name}-fabric-${mod_version}.jar", [curseForgeMinecraft1211, curseForgeFabric], [
+publishCurseForgeVersionTask('fabric', "fabric/build/libs/${archives_name}-fabric-${mod_version}.jar", [curseForgeMinecraft1211, curseForgeFabric, curseForgeClient, curseForgeServer], [
         [slug: 'fabric-api', type: 'requiredDependency'],
         [slug: 'architectury-api', type: 'requiredDependency'],
         [slug: 'yacl', type: 'requiredDependency'],
@@ -413,7 +415,7 @@ publishCurseForgeVersionTask('fabric', "fabric/build/libs/${archives_name}-fabri
         [slug: 'beans-backpacks', type: 'optionalDependency']
 ])
 
-publishCurseForgeVersionTask('neoforge', "neoforge/build/libs/${archives_name}-neoforge-${mod_version}.jar", [curseForgeMinecraft1211, curseForgeNeoForge], [
+publishCurseForgeVersionTask('neoforge', "neoforge/build/libs/${archives_name}-neoforge-${mod_version}.jar", [curseForgeMinecraft1211, curseForgeNeoForge, curseForgeClient, curseForgeServer], [
         [slug: 'architectury-api', type: 'requiredDependency'],
         [slug: 'yacl', type: 'requiredDependency'],
         [slug: 'curios', type: 'optionalDependency'],
