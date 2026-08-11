@@ -83,10 +83,10 @@ subprojects {
 }
 
 def modrinthApi = 'https://api.modrinth.com/v2'
+def modrinthProjectId = 'rfnJO0zi'
 def modrinthProjectSlug = 'better-flight-revived'
 def modrinthUserAgent = 'Senior-S/Better-Flight-Revived local release'
 def curseForgeApi = 'https://minecraft.curseforge.com/api'
-def curseForgeProjectSlug = 'better-flight-revived'
 def curseForgeProjectId = 1538652
 def curseForgeMinecraft1211 = 11779
 def curseForgeFabric = 7499
@@ -176,34 +176,7 @@ def curseForgeToken = {
 }
 
 def curseForgeProject = {
-    def projectId = System.getenv('CURSEFORGE_PROJECT_ID') ?: findProperty('curseForgeProjectId')
-    if (projectId) {
-        return projectId
-    }
-    if (curseForgeProjectSlug == 'better-flight-revived') {
-        return curseForgeProjectId
-    }
-
-    String token = curseForgeToken()
-    URL url = new URL("https://api.curseforge.com/v1/mods/search?gameId=432&slug=${curseForgeProjectSlug}")
-    HttpURLConnection connection = (HttpURLConnection) url.openConnection()
-    connection.setRequestProperty('x-api-key', token)
-    connection.setRequestProperty('Accept', 'application/json')
-    connection.connect()
-
-    String text = connection.responseCode >= 400
-            ? connection.errorStream?.getText('UTF-8')
-            : connection.inputStream?.getText('UTF-8')
-    if (connection.responseCode >= 400) {
-        throw new GradleException("CurseForge project lookup failed with HTTP ${connection.responseCode}: ${text}")
-    }
-
-    def response = new JsonSlurper().parseText(text)
-    def project = response.data?.find { it.slug == curseForgeProjectSlug } ?: response.data?.getAt(0)
-    if (!project?.id) {
-        throw new GradleException("Could not resolve CurseForge project id for slug '${curseForgeProjectSlug}'.")
-    }
-    project.id
+    System.getenv('CURSEFORGE_PROJECT_ID') ?: findProperty('curseForgeProjectId') ?: curseForgeProjectId
 }
 
 def requestJson = { String method, String endpoint, Map payload = null ->
@@ -320,34 +293,17 @@ def projectPayload = {
 
 tasks.register('syncModrinthProject') {
     group = 'publishing'
-    description = 'Creates or updates the Modrinth project page.'
+    description = 'Updates the Modrinth project page.'
 
     doLast {
-        File outputDir = file("$buildDir/modrinth")
-        outputDir.mkdirs()
-
         Map payload = projectPayload()
-        def project
-        try {
-            project = requestJson('GET', "/project/${modrinthProjectSlug}")
-            Map updatePayload = new LinkedHashMap(payload)
-            updatePayload.remove('slug')
-            updatePayload.remove('project_type')
-            project = requestJson('PATCH', "/project/${modrinthProjectSlug}", updatePayload)
-            if (project == null) {
-                project = requestJson('GET', "/project/${modrinthProjectSlug}")
-            }
-        } catch (GradleException exception) {
-            if (!exception.message.contains('HTTP 404')) {
-                throw exception
-            }
-            Map createPayload = new LinkedHashMap(payload)
-            createPayload.requested_status = 'draft'
-            File icon = file('common/src/main/resources/assets/betterflight/icon/icon-256.png')
-            project = requestMultipart('POST', '/project', createPayload, ['icon': icon])
+        Map updatePayload = new LinkedHashMap(payload)
+        updatePayload.remove('slug')
+        updatePayload.remove('project_type')
+        def project = requestJson('PATCH', "/project/${modrinthProjectId}", updatePayload)
+        if (project == null) {
+            project = requestJson('GET', "/project/${modrinthProjectId}")
         }
-
-        file("$outputDir/project-id.txt").text = project.id
         logger.lifecycle("Synced Modrinth project ${project.slug} (${project.id})")
     }
 }
@@ -364,7 +320,6 @@ def publishModrinthVersionTask = { String loaderName, String versionSuffix, Stri
                 throw new GradleException("Expected release jar does not exist: ${jar}")
             }
 
-            String projectId = file("$buildDir/modrinth/project-id.txt").text.trim()
             String changelog = findProperty('modrinthChangelog') ?: "Better Flight Revived ${version} for Minecraft ${minecraft_version}."
             String releaseType = findProperty('modrinthReleaseType') ?: 'release'
             Map payload = [
@@ -377,7 +332,7 @@ def publishModrinthVersionTask = { String loaderName, String versionSuffix, Stri
                     loaders       : [loaderName],
                     featured      : true,
                     status        : 'listed',
-                    project_id    : projectId,
+                    project_id    : modrinthProjectId,
                     file_parts    : ['file'],
                     primary_file  : 'file'
             ]
@@ -409,7 +364,7 @@ tasks.register('requestModrinthReview') {
     dependsOn 'publishModrinthFabric', 'publishModrinthNeoforge'
 
     doLast {
-        requestJson('PATCH', "/project/${modrinthProjectSlug}", [requested_status: 'approved'])
+        requestJson('PATCH', "/project/${modrinthProjectId}", [requested_status: 'approved'])
         logger.lifecycle('Requested Modrinth review')
     }
 }

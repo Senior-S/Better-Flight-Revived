@@ -1,0 +1,68 @@
+name: build
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v6
+      - name: validate gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+      - name: setup jdk
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: microsoft
+      - name: make gradle wrapper executable
+        run: chmod +x ./gradlew
+      - name: build
+        run: ./gradlew :fabric:build :neoforge:build
+      - name: capture build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: betterflight-mc1.21.1
+          path: |
+            fabric/build/libs/betterflight-fabric-*.jar
+            neoforge/build/libs/betterflight-neoforge-*.jar
+            !**/*-dev-shadow.jar
+            !**/*-sources.jar
+
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v6
+      - name: download build artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: release
+          merge-multiple: true
+      - name: publish version release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(sed -n 's/^[[:space:]]*mod_version[[:space:]]*=[[:space:]]*//p' gradle.properties)"
+          test -n "$version"
+          tag="v$version"
+
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $tag already exists."
+            exit 0
+          fi
+
+          gh release create "$tag" release/*.jar \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Better Flight Revived $version" \
+            --generate-notes

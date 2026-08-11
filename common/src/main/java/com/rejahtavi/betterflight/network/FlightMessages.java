@@ -2,8 +2,11 @@ package com.rejahtavi.betterflight.network;
 
 import com.rejahtavi.betterflight.BetterFlight;
 import com.rejahtavi.betterflight.common.FlightActionType;
+import dev.architectury.networking.NetworkManager;
 import dev.architectury.networking.simple.MessageType;
 import dev.architectury.networking.simple.SimpleNetworkManager;
+import dev.architectury.platform.Platform;
+import dev.architectury.utils.Env;
 import net.minecraft.server.level.ServerPlayer;
 
 public final class FlightMessages {
@@ -19,6 +22,10 @@ public final class FlightMessages {
         CLIENT_TO_SERVER_FLIGHT_ACTION = NETWORK.registerC2S("flight_action", CTSFlightEffectsPacket::new);
         SERVER_TO_CLIENT_CONFIG = NETWORK.registerS2C("common_config", STCCommonConfigPacket::new);
         SERVER_TO_CLIENT_CHARGE = NETWORK.registerS2C("elytra_charge", STCElytraChargePacket::new);
+        if (Platform.getEnvironment() == Env.SERVER) {
+            NetworkManager.registerS2CPayloadType(SERVER_TO_CLIENT_CONFIG.getId());
+            NetworkManager.registerS2CPayloadType(SERVER_TO_CLIENT_CHARGE.getId());
+        }
     }
 
     public static void sendToServer(FlightActionType action) {
