@@ -61,7 +61,10 @@ jobs:
             exit 0
           fi
 
-          gh release create "$tag" release/*.jar \
+          mapfile -d '' jars < <(find release -type f -name '*.jar' -print0)
+          test "${#jars[@]}" -eq 2
+
+          gh release create "$tag" "${jars[@]}" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Better Flight Revived $version" \
